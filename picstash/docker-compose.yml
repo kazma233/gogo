@@ -1,0 +1,21 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "6100:6100"
+    environment:
+      - SERVER_MODE=release
+    restart: unless-stopped
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+    ports:
+      - "6200:80"
+    environment:
+      - VITE_API_DOMAIN=http://127.0.0.1:6100
+    depends_on:
+      - backend
+    restart: unless-stopped

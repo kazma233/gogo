@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #007bff;
+  --color-secondary: #6c757d;
+  --color-success: #28a745;
+  --color-danger: #dc3545;
+  --color-warning: #ffc107;
+}
+
+body {
+  @apply antialiased;
+}
+
+.gallery-grid {
+  @apply w-full;
+}
+
+.item {
+  @apply break-inside-avoid;
+}

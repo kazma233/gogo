@@ -1,0 +1,28 @@
+services:
+  lan-connector:
+    container_name: lanc
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    ports:
+      - "5666:5667"
+    environment:
+      - LC_PORT=5667
+      - LC_DOWNLOAD_PATH=/run/app/download
+      - LC_MAX_FILE_SIZE=104857600 # 100MB
+    volumes:
+      - lan-connector-data:/run/app/download
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 128M
+        reservations:
+          cpus: "1"
+          memory: 32M
+    restart: unless-stopped
+
+volumes:
+  lan-connector-data:
+    driver: local
+    name: lan-connector-data

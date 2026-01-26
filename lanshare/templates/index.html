@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <title>LanConnector</title>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/css/pico.min.css">
+    <style>
+        .text-center {
+            text-align: center;
+        }
+
+        .inline-block {
+            display: inline-block;
+        }
+
+        .pa10 {
+            padding: 10px;
+        }
+
+        .m-10 {
+            margin: 10px;
+        }
+
+        .m2 {
+            margin: 2px;
+        }
+
+        .flex {
+            display: flex;
+        }
+
+        .flex-align-center {
+            align-items: center;
+        }
+
+        .flex-align-start {
+            align-items: flex-start;
+        }
+
+        .flex-column {
+            flex-direction: column;
+        }
+
+        .flex-content-center {
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .object-contain {
+            object-fit: contain;
+        }
+
+        .h-full {
+            height: 100%;
+        }
+
+        .max-w-min {
+            max-width: min-content;
+        }
+
+        .td-middle {
+            vertical-align: center;
+        }
+
+        .td-nowrap {
+            white-space: nowrap;
+        }
+
+        .td-wrap {
+            word-wrap: break-word;
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container" id="app">
+    <header class="flex flex-content-center flex-column pa10">
+        <div class="flex flex-content-center">
+            <h1>LanConnector</h1>
+        </div>
+        <div class="flex flex-content-center">
+            <p>扫码访问</p>
+        </div>
+        <div class="flex flex-content-center">
+            <div id="qrcode"/>
+        </div>
+    </header>
+
+    <main>
+        <section class="m-10">
+            <form @submit.prevent="addItem">
+                <fieldset role="group">
+                    <input type="text" v-model.trim="content" placeholder="输入文本发送..." required>
+                    <input type="submit" value="保存"/>
+                </fieldset>
+            </form>
+
+            <form @submit.prevent="doUploadFile">
+                <fieldset role="group">
+                    <input type="file" ref="fileInput" @change="uploadChanged">
+                    <input type="submit" :disabled="uploading" value="上传"/>
+                </fieldset>
+            </form>
+        </section>
+
+        <hr>
+
+        <section>
+            <div class="flex flex-align-start">
+                <h2>消息列表：</h2>
+            </div>
+            <table>
+                <thead data-theme="dark">
+                <tr>
+                    <th>类型</th>
+                    <th>内容</th>
+                    <th>操作</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr v-for="item in items" :key="item.id">
+                    <td v-if="item.type === 'text'" class="td-middle td-nowrap">{{`📄${item.type}`}}</td>
+                    <td v-else class="td-middle td-nowrap">{{`🔗${item.type}`}}</td>
+
+                    <td class="td-wrap">{{item.content}}</td>
+
+                    <td class="td-middle td-nowrap">
+                        <button class="m2" @click="removeItem($event, item.id)">删除</button>
+                        <button class="m2" v-if="item.type === 'text'" @click="copyContent(item.content)">复制</button>
+                        <a class="m2" v-else :href="`/download/${item.id}`" target="_blank">
+                            <button>打开</button>
+                        </a>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </section>
+    </main>
+</div>
+
+</body>
+
+<script src="/js/vue.global.min.js"></script>
+<script src="/js/axios.min.js"></script>
+<script src="/js/qrcode.min.js"></script>
+<script>
+    async function requestClipboardPermission() {
+        try {
+            const permissionStatus = await navigator.permissions.query({name: 'clipboard-write'});
+            console.log(`剪贴板权限状态: ${permissionStatus.state}`);
+            return permissionStatus.state;
+        } catch (err) {
+            console.error('请求剪贴板权限失败: ', err);
+            return 'error';
+        }
+    }
+
+    const {createApp, ref} = Vue
+    createApp({
+        setup() {
+            return {}
+        },
+        data() {
+            return {
+                items: ref([]),
+                content: ref(''),
+                uploadFiles: null,
+                uploading: false,
+            }
+        },
+        methods: {
+            async fetchItems() {
+                try {
+                    const response = await axios.get("/msg");
+                    this.items = response.data;
+                } catch (error) {
+                    console.error('获取消息列表失败:', error);
+                }
+            },
+            async addItem(event) {
+                event.preventDefault();
+                if (!this.content.trim()) return;
+
+                try {
+                    await axios.post("/msg", {type: "text", content: this.content});
+                    await this.fetchItems();
+                    this.content = '';
+                } catch (error) {
+                    console.error('添加消息失败:', error);
+                }
+            },
+            async removeItem(event, id) {
+                event.preventDefault();
+                try {
+                    await axios.delete(`/msg/${id}`);
+                    await this.fetchItems();
+                } catch (error) {
+                    console.error('删除消息失败:', error);
+                }
+            },
+            uploadChanged(event) {
+                this.uploadFiles = event.target.files;
+            },
+            async doUploadFile(event) {
+                event.preventDefault();
+                if (!this.uploadFiles?.[0] || this.uploading) return;
+
+                this.uploading = true;
+                const form = new FormData();
+                form.append('file', this.uploadFiles[0]);
+
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+                    await axios.post('/fs', form, {
+                        signal: controller.signal,
+                        headers: {
+                            'Content-Type': 'multipart/form-data'
+                        },
+                        onUploadProgress: (progressEvent) => {
+                            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                            console.log(`Upload progress: ${percentCompleted}%`);
+                        }
+                    });
+
+                    clearTimeout(timeoutId);
+                    await this.fetchItems();
+                    this.$refs.fileInput.value = null;
+                } catch (error) {
+                    console.error('上传文件失败:', error);
+                    let errorMessage = '上传文件失败';
+
+                    if (error.code === 'ERR_CONNECTION_RESET') {
+                        errorMessage = '连接被重置，请检查服务器连接是否正常';
+                    } else if (error.code === 'ERR_NETWORK') {
+                        errorMessage = '网络连接错误，请检查网络连接';
+                    } else if (error.code === 'ECONNABORTED') {
+                        errorMessage = '上传超时，请重试';
+                    } else if (error.response) {
+                        // 处理服务器返回的错误信息
+                        if (error.response.data && error.response.data.error) {
+                            errorMessage = `上传失败: ${error.response.data.error}`;
+                        } else {
+                            errorMessage = `服务器错误 (${error.response.status}): ${error.response.statusText || '未知错误'}`;
+                        }
+                    }
+
+                    alert(errorMessage);
+                } finally {
+                    this.uploading = false;
+                }
+            },
+            async copyContent(text) {
+                try {
+                    const permissionStatus = await requestClipboardPermission();
+                    if (permissionStatus === 'granted' || permissionStatus === 'prompt') {
+                        await navigator.clipboard.writeText(text);
+                        console.log(`已复制 "${text}" 到剪贴板`);
+                    } else {
+                        const tempElement = document.createElement('textarea');
+                        tempElement.value = text;
+                        document.body.appendChild(tempElement);
+                        tempElement.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(tempElement);
+                        console.log(`已复制 "${text}" 到剪贴板`);
+                    }
+                } catch (err) {
+                    console.error('复制文本失败: ', err);
+                    alert('复制文本失败');
+                }
+            },
+        },
+        mounted() {
+            this.fetchItems();
+
+
+            var qrcode = new QRCode(document.getElementById("qrcode"), {
+                text: window.location.href,
+                width: 200,
+                height: 200,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+    }).mount('#app')
+</script>
+
+</html>

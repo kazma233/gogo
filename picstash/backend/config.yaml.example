@@ -1,0 +1,41 @@
+server:
+  port: 6100
+  mode: debug  # debug, release
+  max_body_size: 100MB  # max upload size (e.g., 10MB, 100MB, 1GB)
+
+database:
+  path: ./data/picstash.db
+
+jwt:
+  secret: change-this-to-a-random-secret-in-production
+  expires_in: 24h
+
+smtp:
+  host: smtp.gmail.com
+  port: "587"
+  username: your-email@gmail.com
+  password: your-app-password
+  from: noreply@picstash.app
+  from_name: Picstash
+
+github:
+  token: your-github-personal-access-token
+  owner: your-github-username
+  repo: your-image-repo
+  branch: main
+  path_prefix: images
+
+upload:
+  thumbnail_width: 1920  # 1080P
+  thumbnail_quality: 80
+  thumbnail_format: jpeg
+
+log:
+  level: debug  # debug, info, warn, error
+  format: json  # json, text
+  path: ./logs
+
+auth:
+  allowed_emails:
+    - admin@example.com
+    - another@example.com
