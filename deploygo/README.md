@@ -9,7 +9,7 @@ DeployGo 是一个轻量级的 CI/CD 工具，使用容器（Docker/Podman）进
 | `deploygo pipeline` | 执行完整的构建+部署流程（包含 write + build + deploy） |
 | `deploygo build` | 使用容器执行构建任务 |
 | `deploygo deploy` | 部署应用到远程服务器 |
-| `deploygo write` | 将 overlays 目录文件复制到 resource 目录 |
+| `deploygo write` | 将 overlays 目录文件复制到 source 目录 |
 | `deploygo list` | 列出所有项目 |
 
 ## 安装方式
@@ -34,7 +34,7 @@ workspace/
     ├── config.yaml        # 配置文件
     ├── overlays/          # 可选：覆盖文件目录
     │   └── Dockerfile
-    ├── resource/          # 可选：资源基础目录
+    ├── source/            # 可选：源代码基础目录
     │   ├── Dockerfile
     │   └── config/
     └── src/               # 源代码目录
@@ -56,7 +56,7 @@ deploygo -P myproject build
 # 仅部署
 deploygo -P myproject deploy
 
-# 仅执行 write（overlays -> resource）
+# 仅执行 write（overlays -> source）
 deploygo -P myproject write
 
 # 执行指定的部署步骤
@@ -274,13 +274,13 @@ deploygo -P myproject pipeline
 ```
 
 执行顺序：
-1. 执行 `write` 复制 overlays 到 resource
+1. 执行 `write` 复制 overlays 到 source
 2. 执行所有 build 阶段
 3. 执行所有 deploy 步骤
 
 ### deploygo write
 
-将 overlays 目录中的文件按照约定结构复制到 resource 目录。
+将 overlays 目录中的文件按照约定结构复制到 source 目录。
 
 ```bash
 deploygo -P myproject write
@@ -294,17 +294,17 @@ workspace/myproject/
 │   ├── Dockerfile
 │   └── config/
 │       └── app.yaml
-└── resource/           # 资源基础目录（构建时的工作目录）
+└── source/             # 源代码基础目录（构建时的工作目录）
     ├── Dockerfile      # 会被 overlays/Dockerfile 覆盖
     └── config/
         └── app.yaml    # 会被 overlays/config/app.yaml 覆盖
 ```
 
 **执行效果**：
-- `overlays/Dockerfile` → `resource/Dockerfile`
-- `overlays/config/app.yaml` → `resource/config/app.yaml`
+- `overlays/Dockerfile` → `source/Dockerfile`
+- `overlays/config/app.yaml` → `source/config/app.yaml`
 
-此命令用于在执行 pipeline 前，将用户的定制文件覆盖到资源基础目录，保持 `resource/` 目录的纯净性。
+此命令用于在执行 pipeline 前，将用户的定制文件覆盖到源代码基础目录，保持 `source/` 目录的纯净性。
 
 ### deploygo list
 
@@ -321,9 +321,9 @@ deploygo list
    - 部署配置：`deploy_conf/<project>.yaml`（备用）
 
 2. **overlays 目录约定**：
-   - `overlays/` 目录下的文件会覆盖到 `resource/` 目录
+   - `overlays/` 目录下的文件会覆盖到 `source/` 目录
    - 执行 `pipeline` 前会自动调用 `write`
-   - 目录结构保持一致：`overlays/xxx` → `resource/xxx`
+   - 目录结构保持一致：`overlays/xxx` → `source/xxx`
 
 3. **路径处理**：
    - `~` 会自动展开为用户 home 目录（如 `~/.ssh/id_rsa`）
@@ -372,7 +372,7 @@ workspace/<project>/           # projectDir = 配置文件所在目录
 ├── config.yaml               # 项目配置
 ├── overlays/                 # 覆盖文件（write 命令来源）
 │   └── Dockerfile
-├── resource/                 # 资源基础目录（构建工作目录）
+├── source/                   # 源代码基础目录（构建工作目录）
 │   ├── Dockerfile
 │   └── config/
 └── src/                      # 源代码目录
@@ -387,22 +387,22 @@ deploy_conf/<project>.yaml    # 备用配置文件位置
 | `projectDir` | `workspace/<project>/` | 配置文件所在目录，from/to 路径的基准 |
 | `basicPath` | 同 projectDir | 代码中使用的项目基础路径 |
 | `overlays/` | `projectDir/overlays/` | 用户覆盖文件目录 |
-| `resource/` | `projectDir/resource/` | 资源基础目录（pipeline 执行时的实际工作目录） |
+| `source/` | `projectDir/source/` | 源代码基础目录（pipeline 执行时的实际工作目录） |
 
 ### Overlays 机制
 
 ```
 执行 pipeline 时的文件复制流程：
 
-1. write 阶段：将 overlays/ 覆盖到 resource/
-2. 构建阶段：使用 resource/ 作为项目基础目录
-3. 所有 copy_to_local 路径都相对于 resource/
+1. write 阶段：将 overlays/ 覆盖到 source/
+2. 构建阶段：使用 source/ 作为项目基础目录
+3. 所有 copy_to_local 路径都相对于 source/
 
 示例：
 config.yaml 所在目录 = workspace/myproject/
-overlays/Dockerfile        →  resource/Dockerfile
-overlays/config/app.yaml   →  resource/config/app.yaml
-overlays/bin/start.sh      →  resource/bin/start.sh
+overlays/Dockerfile        →  source/Dockerfile
+overlays/config/app.yaml   →  source/config/app.yaml
+overlays/bin/start.sh      →  source/bin/start.sh
 ```
 
 ## License

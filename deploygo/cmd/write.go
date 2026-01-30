@@ -14,8 +14,8 @@ import (
 
 var WriteCmd = &cobra.Command{
 	Use:   "write",
-	Short: "Copy overlays to resource directory",
-	Long:  `Copy all files from overlays/ to resource/ directory`,
+	Short: "Copy overlays to source directory",
+	Long:  `Copy all files from overlays/ to source/ directory`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if projectName == "" {
 			log.Fatal("Please specify a project using -P flag")
@@ -23,7 +23,7 @@ var WriteCmd = &cobra.Command{
 
 		projectDir := filepath.Join(config.WorkspaceDir, projectName)
 		overlaysDir := filepath.Join(projectDir, "overlays")
-		resourceDir := filepath.Join(projectDir, "resource")
+		sourceDir := filepath.Join(projectDir, "source")
 
 		if _, err := os.Stat(overlaysDir); os.IsNotExist(err) {
 			log.Printf("No overlays directory found for project '%s'", projectName)
@@ -32,9 +32,9 @@ var WriteCmd = &cobra.Command{
 
 		log.Printf("Project: %s", projectName)
 		log.Printf("Overlays: %s", overlaysDir)
-		log.Printf("Resource: %s", resourceDir)
+		log.Printf("Source: %s", sourceDir)
 
-		if err := copyOverlays(overlaysDir, resourceDir); err != nil {
+		if err := copyOverlays(overlaysDir, sourceDir); err != nil {
 			log.Fatalf("Failed to copy overlays: %v", err)
 		}
 

@@ -11,6 +11,7 @@ DeployGo 是一个基于 Go 语言和容器技术的轻量级 CI/CD 工具，专
 - **多阶段构建** - 支持多个构建阶段按顺序执行
 - **灵活的文件拷贝** - 支持 glob pattern 匹配本地文件到容器的拷贝
 - **多种部署方式** - 支持 SSH 命令执行和 SFTP 文件传输
+- **Git 克隆支持** - 支持从 Git 仓库克隆代码到 source 目录
 - **YAML 配置** - 使用 YAML 格式的配置文件
 
 ### 设计原则
@@ -27,9 +28,10 @@ deploygo/
 │   ├── main.go           # 程序入口
 │   ├── root.go           # 根命令定义
 │   ├── build.go          # 构建命令实现
+│   ├── clone.go          # Git 克隆命令实现
 │   ├── deploy.go         # 部署命令实现
 │   ├── pipeline.go       # 构建+部署流水线命令
-│   ├── write.go          # 写入文件命令（overlays -> resource）
+│   ├── write.go          # 写入文件命令（overlays -> source）
 │   └── list.go           # 列出所有项目
 ├── internal/
 │   ├── config/
@@ -41,6 +43,8 @@ deploygo/
 │   │   └── podman.go       # Podman 运行时实现
 │   ├── deploy/
 │   │   └── executor.go     # SSH 和文件传输执行器
+│   ├── git/
+│   │   └── clone.go        # Git 克隆功能
 │   └── stage/
 │       ├── builds.go       # 构建阶段执行
 │       ├── deploys.go      # 部署步骤执行
@@ -48,12 +52,12 @@ deploygo/
 ├── workspace/             # 项目工作目录
 │   ├── myapp/
 │   │   ├── config.yaml     # 项目配置
-│   │   ├── resource/       # 源代码目录（构建时 copy 到容器）
-│   │   └── overlays/       # 配置文件目录（会覆盖到 resource）
+    │   │   ├── source/         # 源代码目录（构建时 copy 到容器）
+    │   │   └── overlays/       # 配置文件目录（会覆盖到 source）
 │   └── playground/
 │       ├── config.yaml
-│       ├── resource/
-│       └── overlays/
+    │       ├── source/
+    │       └── overlays/
 ├── doc/
 │   └── DESIGN.md         # 设计文档
 ├── go.mod
@@ -70,8 +74,8 @@ deploygo/
 ```
 workspace/<project>/
 ├── config.yaml     # 项目配置
-├── resource/       # 源代码（构建时 copy 到容器）
-└── overlays/       # 配置文件（write 时 copy 到 resource，不带顶层目录）
+├── source/         # 源代码（构建时 copy 到容器）
+└── overlays/       # 配置文件（write 时 copy 到 source，不带顶层目录）
 ```
 
 ### 3.2 完整配置示例
@@ -79,6 +83,11 @@ workspace/<project>/
 ```yaml
 container:
   type: podman
+
+# Git 克隆配置（可选）
+clone:
+  url: https://github.com/example/myapp.git
+  branch: main  # 可选，默认 master
 
 servers:
   web-server:
@@ -95,7 +104,7 @@ builds:
       - CGO_ENABLED=0
       - GOOS=linux
     copy_to_container:
-      - from: ./resource/
+      - from: ./source/
         to: /app/
     copy_to_local:
       - from: /app/output/
@@ -137,6 +146,8 @@ deploys:
 | `deploys.*.commands` | []string | 在远程服务器执行的命令列表 |
 | `deploys.*.from` | string | 源路径（本地，相对于项目目录） |
 | `deploys.*.to` | string | 目标路径（远程服务器） |
+| `clone.url` | string | Git 仓库地址 |
+| `clone.branch` | string | Git 分支名称，默认 master |
 
 ## 4. 使用方法
 
@@ -154,16 +165,30 @@ Available projects:
   - playground
 ```
 
-### 4.2 写入文件（overlays -> resource）
+### 4.2 克隆 Git 仓库
 
-将 `overlays/` 目录下的配置文件 copy 到 `resource/` 目录，保留目录结构但不包含 `overlays/` 本身。
+从配置的 Git 仓库克隆代码到 `source/` 目录，**会清空原有内容**。
+
+```bash
+# 克隆 Git 仓库到 source 目录
+deploygo -P myapp clone
+```
+
+要求：
+- 系统中必须安装 `git` 命令
+- 需要在 `config.yaml` 中配置 `clone.url`
+- 支持 SSH 和 HTTPS 协议的仓库地址
+
+### 4.3 写入文件（overlays -> source）
+
+将 `overlays/` 目录下的配置文件 copy 到 `source/` 目录，保留目录结构但不包含 `overlays/` 本身。
 
 ```bash
 # 执行所有写入步骤
 deploygo -P myapp write
 ```
 
-### 4.3 构建项目
+### 4.4 构建项目
 
 ```bash
 # 构建指定项目的所有步骤
@@ -173,7 +198,7 @@ deploygo -P myapp build
 deploygo -P myapp build -s docker-build
 ```
 
-### 4.4 部署项目
+### 4.5 部署项目
 
 ```bash
 # 部署指定项目的所有步骤
@@ -183,14 +208,14 @@ deploygo -P myapp deploy
 deploygo -P myapp deploy -s restart-service
 ```
 
-### 4.5 运行完整流水线
+### 4.6 运行完整流水线
 
 ```bash
 # 写入 → 构建 + 部署
 deploygo -P myapp pipeline
 ```
 
-### 4.6 文件传输说明
+### 4.7 文件传输说明
 
 **文件上传**：
 ```
@@ -240,4 +265,4 @@ A: 为每个项目创建独立的目录，然后分别运行部署命令。
 A: 可以，如果没有配置文件需要覆盖，overlays 目录可以不存在或为空。
 
 ### Q: 为什么需要 overlays？
-A: 配置文件通常包含敏感信息（如数据库密码、API Key），不适合提交到代码仓库。使用 overlays 目录可以将配置文件与源代码分离：源代码放在 resource/，配置文件放在 overlays/，write 时自动合并。
+A: 配置文件通常包含敏感信息（如数据库密码、API Key），不适合提交到代码仓库。使用 overlays 目录可以将配置文件与源代码分离：源代码放在 source/，配置文件放在 overlays/，write 时自动合并。

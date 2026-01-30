@@ -15,6 +15,12 @@ type Config struct {
 	Deploys   []DeploymentStep        `yaml:"deploys"`
 	Container ContainerConfig         `yaml:"container"`
 	Servers   map[string]ServerConfig `yaml:"servers"`
+	Clone     *CloneConfig            `yaml:"clone,omitempty"`
+}
+
+type CloneConfig struct {
+	URL    string `yaml:"url"`
+	Branch string `yaml:"branch"`
 }
 
 type ContainerConfig struct {

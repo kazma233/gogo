@@ -45,11 +45,11 @@ var PipelineCmd = &cobra.Command{
 
 		projectDir := filepath.Join(config.WorkspaceDir, projectName)
 		overlaysDir := filepath.Join(projectDir, "overlays")
-		resourceDir := filepath.Join(projectDir, "resource")
+		sourceDir := filepath.Join(projectDir, "source")
 
 		if _, err := os.Stat(overlaysDir); err == nil {
 			log.Println("=== Copying Overlays ===")
-			if err := copyOverlays(overlaysDir, resourceDir); err != nil {
+			if err := copyOverlays(overlaysDir, sourceDir); err != nil {
 				log.Fatalf("Failed to copy overlays: %v", err)
 			}
 		}

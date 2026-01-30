@@ -19,4 +19,5 @@ func init() {
 	RootCmd.AddCommand(PipelineCmd)
 	RootCmd.AddCommand(WriteCmd)
 	RootCmd.AddCommand(ListCmd)
+	RootCmd.AddCommand(CloneCmd)
 }
