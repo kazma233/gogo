@@ -211,11 +211,19 @@ deploygo -P myapp deploy -s restart-service
 ### 4.6 运行完整流水线
 
 ```bash
-# 写入 → 构建 + 部署
+# 克隆（如果配置了）→ 写入 → 构建 + 部署
 deploygo -P myapp pipeline
 ```
 
+Pipeline 执行顺序：
+1. **Git 克隆**（如果配置了 `clone.url`）- 从 Git 仓库克隆代码到 source 目录
+2. **写入 Overlays**（如果存在 `overlays/` 目录）- 将配置文件覆盖到 source 目录
+3. **构建** - 执行所有构建阶段
+4. **部署** - 执行所有部署步骤
+
 ### 4.7 文件传输说明
+
+### 4.8 文件传输说明
 
 **文件上传**：
 ```

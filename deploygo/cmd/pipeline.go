@@ -7,6 +7,7 @@ import (
 
 	"deploygo/internal/config"
 	"deploygo/internal/container"
+	"deploygo/internal/git"
 	"deploygo/internal/stage"
 
 	"github.com/spf13/cobra"
@@ -46,6 +47,23 @@ var PipelineCmd = &cobra.Command{
 		projectDir := filepath.Join(config.WorkspaceDir, projectName)
 		overlaysDir := filepath.Join(projectDir, "overlays")
 		sourceDir := filepath.Join(projectDir, "source")
+
+		// 执行 Git 克隆（如果配置了）
+		if cfg.Clone != nil && cfg.Clone.URL != "" {
+			log.Println("=== Cloning Git Repository ===")
+			log.Printf("Git URL: %s", cfg.Clone.URL)
+			if cfg.Clone.Branch != "" {
+				log.Printf("Branch: %s", cfg.Clone.Branch)
+			}
+			opts := git.CloneOptions{
+				URL:       cfg.Clone.URL,
+				Branch:    cfg.Clone.Branch,
+				TargetDir: sourceDir,
+			}
+			if err := git.Clone(opts); err != nil {
+				log.Fatalf("Failed to clone repository: %v", err)
+			}
+		}
 
 		if _, err := os.Stat(overlaysDir); err == nil {
 			log.Println("=== Copying Overlays ===")

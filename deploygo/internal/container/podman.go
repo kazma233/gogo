@@ -37,8 +37,30 @@ func (p *PodmanRuntime) runCommand(ctx context.Context, args ...string) (string,
 }
 
 func (p *PodmanRuntime) PullImage(ctx context.Context, image string) error {
-	_, err := p.runCommand(ctx, "pull", "--policy", "newer", image)
+	// 检查本地是否已存在该镜像
+	exists, err := p.imageExists(ctx, image)
+	if err != nil {
+		return fmt.Errorf("failed to check image existence: %w", err)
+	}
+	if exists {
+		log.Printf("Image '%s' already exists locally, skipping pull", image)
+		return nil
+	}
+
+	log.Printf("Pulling image '%s'...", image)
+	_, err = p.runCommand(ctx, "pull", image)
 	return err
+}
+
+// imageExists 检查本地是否存在指定镜像
+func (p *PodmanRuntime) imageExists(ctx context.Context, image string) (bool, error) {
+	// 使用 podman images 命令检查镜像是否存在
+	// 使用 --format 只返回镜像ID，如果存在则返回ID，不存在返回空
+	output, err := p.runCommand(ctx, "images", "--format", "{{.Id}}", image)
+	if err != nil {
+		return false, err
+	}
+	return output != "", nil
 }
 
 func (p *PodmanRuntime) CreateContainer(ctx context.Context, cfg *ContainerConfig) (string, error) {

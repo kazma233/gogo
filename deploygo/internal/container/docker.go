@@ -37,8 +37,30 @@ func (d *DockerRuntime) runCommand(ctx context.Context, args ...string) (string,
 }
 
 func (d *DockerRuntime) PullImage(ctx context.Context, image string) error {
-	_, err := d.runCommand(ctx, "pull", "--policy", "newer", image)
+	// 检查本地是否已存在该镜像
+	exists, err := d.imageExists(ctx, image)
+	if err != nil {
+		return fmt.Errorf("failed to check image existence: %w", err)
+	}
+	if exists {
+		log.Printf("Image '%s' already exists locally, skipping pull", image)
+		return nil
+	}
+
+	log.Printf("Pulling image '%s'...", image)
+	_, err = d.runCommand(ctx, "pull", image)
 	return err
+}
+
+// imageExists 检查本地是否存在指定镜像
+func (d *DockerRuntime) imageExists(ctx context.Context, image string) (bool, error) {
+	// 使用 docker images 命令检查镜像是否存在
+	// 使用 --format 只返回镜像ID，如果存在则返回ID，不存在返回空
+	output, err := d.runCommand(ctx, "images", "--format", "{{.ID}}", image)
+	if err != nil {
+		return false, err
+	}
+	return output != "", nil
 }
 
 func (d *DockerRuntime) CreateContainer(ctx context.Context, cfg *ContainerConfig) (string, error) {
